@@ -7,6 +7,7 @@
   width: 100vw;
   background: linear-gradient(to bottom, #372963, #000000);
   color: white;
+  overflow-y: hidden;
 }
 .player[data-v-1cf27b2a] {
   text-align: center;
@@ -113,7 +114,7 @@ uni-button[data-v-1cf27b2a]:hover {
 .playlist[data-v-1cf27b2a] {
   text-align: left;
   width: 100%;
-  max-height: 380px;
+  max-height: 250px;
   overflow-y: auto;
   transition: all 0.3s ease-in-out;
   box-sizing: border-box;
@@ -126,7 +127,6 @@ uni-button[data-v-1cf27b2a]:hover {
   align-items: center;
   width: 100%;
   height: 30px;
-  margin-top: 30px;
 }
 .playlist-title h3[data-v-1cf27b2a] {
   margin-left: 10px;

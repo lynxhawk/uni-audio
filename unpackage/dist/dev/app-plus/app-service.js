@@ -183,7 +183,9 @@ if (uni.restoreGlobal) {
           const fileName = `${Date.now()}_${file.name}`;
           const result = await new Promise((resolve, reject) => {
             const Context = plus.android.importClass("android.content.Context");
-            const ContentResolver = plus.android.importClass("android.content.ContentResolver");
+            const ContentResolver = plus.android.importClass(
+              "android.content.ContentResolver"
+            );
             const Uri = plus.android.importClass("android.net.Uri");
             const main = plus.android.runtimeMainActivity();
             const contentResolver = main.getContentResolver();
@@ -201,54 +203,56 @@ if (uni.restoreGlobal) {
                     (fileEntry) => {
                       fileEntry.createWriter((writer) => {
                         writer.onwriteend = () => {
-                          const fileUrl = plus.io.convertLocalFileSystemURL(`_doc/music/${fileName}`);
-                          resolve({
+                          const fileUrl = plus.io.convertLocalFileSystemURL(
+                            `_doc/music/${fileName}`
+                          );
+                          const trackInfo = {
                             name: file.name,
                             url: fileUrl,
                             id: Date.now() + Math.random()
-                          });
+                          };
+                          formatAppLog("log", "at pages/index/index.vue:370", "文件保存成功:", trackInfo);
+                          uni.$emit("music-added", trackInfo);
+                          resolve(trackInfo);
                         };
                         writer.onerror = (e) => {
-                          formatAppLog("error", "at pages/index/index.vue:365", "写入文件错误:", e);
+                          formatAppLog("error", "at pages/index/index.vue:379", "写入文件错误:", e);
                           reject(e);
                         };
                         writer.write(inputStream);
                       });
                     },
                     (error) => {
-                      formatAppLog("error", "at pages/index/index.vue:374", "创建文件失败:", error);
+                      formatAppLog("error", "at pages/index/index.vue:388", "创建文件失败:", error);
                       reject(error);
                     }
                   );
                 },
                 (error) => {
-                  plus.io.resolveLocalFileSystemURL(
-                    "_doc/",
-                    (docEntry) => {
-                      docEntry.getDirectory(
-                        "music",
-                        { create: true },
-                        (musicEntry) => {
-                          saveToLocalStorage(file);
-                        },
-                        (dirError) => {
-                          formatAppLog("error", "at pages/index/index.vue:389", "创建音乐目录失败:", dirError);
-                          reject(dirError);
-                        }
-                      );
-                    }
-                  );
+                  plus.io.resolveLocalFileSystemURL("_doc/", (docEntry) => {
+                    docEntry.getDirectory(
+                      "music",
+                      { create: true },
+                      (musicEntry) => {
+                        saveToLocalStorage(file).then(resolve).catch(reject);
+                      },
+                      (dirError) => {
+                        formatAppLog("error", "at pages/index/index.vue:404", "创建音乐目录失败:", dirError);
+                        reject(dirError);
+                      }
+                    );
+                  });
                 }
               );
             } catch (error) {
-              formatAppLog("error", "at pages/index/index.vue:398", "处理文件流错误:", error);
+              formatAppLog("error", "at pages/index/index.vue:412", "处理文件流错误:", error);
               reject(error);
             }
           });
-          formatAppLog("log", "at pages/index/index.vue:403", "文件保存结果:", result);
+          formatAppLog("log", "at pages/index/index.vue:417", "文件保存结果:", result);
           return result;
         } catch (error) {
-          formatAppLog("error", "at pages/index/index.vue:406", "保存文件失败:", error);
+          formatAppLog("error", "at pages/index/index.vue:420", "保存文件失败:", error);
           uni.showToast({
             title: "文件保存失败",
             icon: "none"
@@ -283,7 +287,7 @@ if (uni.restoreGlobal) {
                     resolve(null);
                   },
                   (error) => {
-                    formatAppLog("error", "at pages/index/index.vue:443", "读取目录失败:", error);
+                    formatAppLog("error", "at pages/index/index.vue:457", "读取目录失败:", error);
                     reject(error);
                   }
                 );
@@ -303,7 +307,7 @@ if (uni.restoreGlobal) {
             );
           });
         } catch (error) {
-          formatAppLog("error", "at pages/index/index.vue:464", "加载本地音乐失败:", error);
+          formatAppLog("error", "at pages/index/index.vue:478", "加载本地音乐失败:", error);
           uni.showToast({
             title: "加载本地音乐失败",
             icon: "none"
@@ -322,12 +326,12 @@ if (uni.restoreGlobal) {
                   "android.permission.WRITE_EXTERNAL_STORAGE"
                 ],
                 function(resultObj) {
-                  formatAppLog("log", "at pages/index/index.vue:485", "权限请求结果:", resultObj);
+                  formatAppLog("log", "at pages/index/index.vue:499", "权限请求结果:", resultObj);
                   const granted = resultObj.granted.length === 2;
                   granted ? resolve(true) : reject("未授予存储权限");
                 },
                 function(error) {
-                  formatAppLog("error", "at pages/index/index.vue:490", "权限请求错误:", error);
+                  formatAppLog("error", "at pages/index/index.vue:504", "权限请求错误:", error);
                   reject(error);
                 }
               );
@@ -341,8 +345,8 @@ if (uni.restoreGlobal) {
           const main = plus.android.runtimeMainActivity();
           main.startActivityForResult(intent, 1);
           main.onActivityResult = (requestCode, resultCode, data) => {
-            formatAppLog("log", "at pages/index/index.vue:510", "完整选择结果对象:", JSON.stringify(data));
-            formatAppLog("log", "at pages/index/index.vue:511", "收到选择结果:", {
+            formatAppLog("log", "at pages/index/index.vue:524", "完整选择结果对象:", JSON.stringify(data));
+            formatAppLog("log", "at pages/index/index.vue:525", "收到选择结果:", {
               requestCode,
               resultCode,
               hasData: !!data
@@ -350,7 +354,7 @@ if (uni.restoreGlobal) {
             if (requestCode === 1 && resultCode === -1 && data) {
               try {
                 if (!data || !data.getData) {
-                  formatAppLog("error", "at pages/index/index.vue:521", "无效的文件选择数据");
+                  formatAppLog("error", "at pages/index/index.vue:535", "无效的文件选择数据");
                   uni.showToast({
                     title: "文件选择无效",
                     icon: "none"
@@ -359,7 +363,7 @@ if (uni.restoreGlobal) {
                 }
                 const uri = data.getData();
                 if (!uri) {
-                  formatAppLog("error", "at pages/index/index.vue:531", "无法获取文件 URI");
+                  formatAppLog("error", "at pages/index/index.vue:545", "无法获取文件 URI");
                   uni.showToast({
                     title: "无法获取文件",
                     icon: "none"
@@ -367,11 +371,11 @@ if (uni.restoreGlobal) {
                   return;
                 }
                 let path = plus.io.convertLocalFileSystemURL(uri.toString());
-                formatAppLog("log", "at pages/index/index.vue:541", "原始文件路径:", path);
+                formatAppLog("log", "at pages/index/index.vue:555", "原始文件路径:", path);
                 if (path.startsWith("file://")) {
                   path = path.substring(7);
                 }
-                formatAppLog("log", "at pages/index/index.vue:547", "处理后的文件路径:", path);
+                formatAppLog("log", "at pages/index/index.vue:561", "处理后的文件路径:", path);
                 const DocumentFile = plus.android.importClass(
                   "androidx.documentfile.provider.DocumentFile"
                 );
@@ -382,14 +386,14 @@ if (uni.restoreGlobal) {
                   const matches = decodedUri.match(/[^/]+$/);
                   displayName = matches ? matches[0] : "未知音乐";
                 }
-                formatAppLog("log", "at pages/index/index.vue:566", "获取到的文件名:", displayName);
-                formatAppLog("log", "at pages/index/index.vue:567", "文件路径:", path);
+                formatAppLog("log", "at pages/index/index.vue:580", "获取到的文件名:", displayName);
+                formatAppLog("log", "at pages/index/index.vue:581", "文件路径:", path);
                 const file = {
                   name: displayName,
                   path
                 };
                 if (!file.name || !file.path) {
-                  formatAppLog("error", "at pages/index/index.vue:577", "无效的文件对象:", file);
+                  formatAppLog("error", "at pages/index/index.vue:591", "无效的文件对象:", file);
                   uni.showToast({
                     title: "文件信息获取失败",
                     icon: "none"
@@ -397,7 +401,7 @@ if (uni.restoreGlobal) {
                   return;
                 }
                 saveToLocalStorage(file).then((trackInfo) => {
-                  formatAppLog("log", "at pages/index/index.vue:588", "音乐保存成功:", trackInfo);
+                  formatAppLog("log", "at pages/index/index.vue:602", "音乐保存成功:", trackInfo);
                   if (trackInfo && trackInfo.name && trackInfo.url) {
                     tracks.push(trackInfo);
                     if (tracks.length === 1) {
@@ -408,21 +412,21 @@ if (uni.restoreGlobal) {
                       icon: "success"
                     });
                   } else {
-                    formatAppLog("error", "at pages/index/index.vue:604", "无效的音乐信息:", trackInfo);
+                    formatAppLog("error", "at pages/index/index.vue:618", "无效的音乐信息:", trackInfo);
                     uni.showToast({
                       title: "音乐添加失败",
                       icon: "none"
                     });
                   }
                 }).catch((error) => {
-                  formatAppLog("error", "at pages/index/index.vue:612", "保存到本地失败:", error);
+                  formatAppLog("error", "at pages/index/index.vue:626", "保存到本地失败:", error);
                   uni.showToast({
                     title: "保存失败",
                     icon: "none"
                   });
                 });
               } catch (err) {
-                formatAppLog("error", "at pages/index/index.vue:620", "处理文件时出错:", err);
+                formatAppLog("error", "at pages/index/index.vue:633", "处理文件时出错:", err);
                 uni.showToast({
                   title: "处理文件失败",
                   icon: "none"
@@ -431,7 +435,7 @@ if (uni.restoreGlobal) {
             }
           };
         } catch (error) {
-          formatAppLog("error", "at pages/index/index.vue:629", "选择文件失败:", error);
+          formatAppLog("error", "at pages/index/index.vue:642", "选择文件失败:", error);
           if (error === "未授予存储权限") {
             uni.showModal({
               title: "需要权限",
@@ -451,7 +455,7 @@ if (uni.restoreGlobal) {
         if (fileInputRef.value) {
           fileInputRef.value.click();
         }
-        formatAppLog("log", "at pages/index/index.vue:651", "fileInput", fileInputRef);
+        formatAppLog("log", "at pages/index/index.vue:664", "fileInput", fileInputRef);
       };
       const onFileChange = (event) => {
         var _a;
@@ -539,7 +543,7 @@ if (uni.restoreGlobal) {
             currentTrackIndex.value = Math.min(index, tracks.length - 1);
           }
         } catch (error) {
-          formatAppLog("error", "at pages/index/index.vue:752", "删除文件失败:", error);
+          formatAppLog("error", "at pages/index/index.vue:765", "删除文件失败:", error);
           uni.showToast({
             title: "删除文件失败",
             icon: "none"
@@ -581,11 +585,21 @@ if (uni.restoreGlobal) {
       vue.onMounted(() => {
         const sysInfo = uni.getSystemInfoSync();
         isApp.value = sysInfo.platform === "android" || sysInfo.platform === "ios";
-        formatAppLog("log", "at pages/index/index.vue:810", "当前平台:", sysInfo.platform);
         if (isApp.value) {
-          loadLocalTracks();
+          loadLocalTracks().then(() => {
+            formatAppLog("log", "at pages/index/index.vue:827", "本地音乐加载完成，总数:", tracks.length);
+          });
+          uni.$on("music-added", (trackInfo) => {
+            formatAppLog("log", "at pages/index/index.vue:832", "收到新音轨:", trackInfo);
+            const exists = tracks.some((track) => track.name === trackInfo.name);
+            if (!exists) {
+              tracks.push(trackInfo);
+              if (tracks.length === 1) {
+                playSpecificTrack(0);
+              }
+            }
+          });
         }
-        formatAppLog("log", "at pages/index/index.vue:815", "fileInput after mount:", fileInputRef.value);
         initCanvas();
         initAudio();
       });

@@ -326,7 +326,9 @@ const saveToLocalStorage = async (file: { name: string; path: string }) => {
     const result = await new Promise((resolve, reject) => {
       // 获取 Android 上下文和 ContentResolver
       const Context = plus.android.importClass("android.content.Context");
-      const ContentResolver = plus.android.importClass("android.content.ContentResolver");
+      const ContentResolver = plus.android.importClass(
+        "android.content.ContentResolver"
+      );
       const Uri = plus.android.importClass("android.net.Uri");
 
       // 获取主 Activity
@@ -339,26 +341,38 @@ const saveToLocalStorage = async (file: { name: string; path: string }) => {
       try {
         // 打开输入流
         const inputStream = contentResolver.openInputStream(uri);
-        
+
         // 获取文档目录
         const docDir = plus.io.convertLocalFileSystemURL("_doc/");
         const musicDir = `${docDir}music/`;
 
         // 确保音乐目录存在
-        plus.io.resolveLocalFileSystemURL(musicDir, 
+        plus.io.resolveLocalFileSystemURL(
+          musicDir,
           (entry) => {
             // 目录存在，创建文件
-            entry.getFile(fileName, { create: true }, 
+            entry.getFile(
+              fileName,
+              { create: true },
               (fileEntry) => {
                 // 打开文件输出流
                 fileEntry.createWriter((writer) => {
                   writer.onwriteend = () => {
-                    const fileUrl = plus.io.convertLocalFileSystemURL(`_doc/music/${fileName}`);
-                    resolve({
+                    const fileUrl = plus.io.convertLocalFileSystemURL(
+                      `_doc/music/${fileName}`
+                    );
+                    const trackInfo = {
                       name: file.name,
                       url: fileUrl,
-                      id: Date.now() + Math.random()
-                    });
+                      id: Date.now() + Math.random(),
+                    };
+
+                    console.log("文件保存成功:", trackInfo);
+
+                    // 发送事件通知更新播放列表
+                    uni.$emit("music-added", trackInfo);
+
+                    resolve(trackInfo);
                   };
 
                   writer.onerror = (e) => {
@@ -378,20 +392,20 @@ const saveToLocalStorage = async (file: { name: string; path: string }) => {
           },
           (error) => {
             // 如果目录不存在，先创建
-            plus.io.resolveLocalFileSystemURL("_doc/", 
-              (docEntry) => {
-                docEntry.getDirectory("music", { create: true }, 
-                  (musicEntry) => {
-                    // 重新调用保存逻辑
-                    saveToLocalStorage(file);
-                  },
-                  (dirError) => {
-                    console.error("创建音乐目录失败:", dirError);
-                    reject(dirError);
-                  }
-                );
-              }
-            );
+            plus.io.resolveLocalFileSystemURL("_doc/", (docEntry) => {
+              docEntry.getDirectory(
+                "music",
+                { create: true },
+                (musicEntry) => {
+                  // 重新调用保存逻辑
+                  saveToLocalStorage(file).then(resolve).catch(reject);
+                },
+                (dirError) => {
+                  console.error("创建音乐目录失败:", dirError);
+                  reject(dirError);
+                }
+              );
+            });
           }
         );
       } catch (error) {
@@ -406,7 +420,7 @@ const saveToLocalStorage = async (file: { name: string; path: string }) => {
     console.error("保存文件失败:", error);
     uni.showToast({
       title: "文件保存失败",
-      icon: "none"
+      icon: "none",
     });
     throw error;
   }
@@ -521,7 +535,7 @@ const chooseFiles = async () => {
             console.error("无效的文件选择数据");
             uni.showToast({
               title: "文件选择无效",
-              icon: "none"
+              icon: "none",
             });
             return;
           }
@@ -531,7 +545,7 @@ const chooseFiles = async () => {
             console.error("无法获取文件 URI");
             uni.showToast({
               title: "无法获取文件",
-              icon: "none"
+              icon: "none",
             });
             return;
           }
@@ -551,7 +565,7 @@ const chooseFiles = async () => {
             "androidx.documentfile.provider.DocumentFile"
           );
           const documentFile = DocumentFile.fromSingleUri(main, uri);
-          
+
           // 安全获取文件名
           let displayName = documentFile ? documentFile.getName() : null;
 
@@ -577,7 +591,7 @@ const chooseFiles = async () => {
             console.error("无效的文件对象:", file);
             uni.showToast({
               title: "文件信息获取失败",
-              icon: "none"
+              icon: "none",
             });
             return;
           }
@@ -586,7 +600,7 @@ const chooseFiles = async () => {
           saveToLocalStorage(file)
             .then((trackInfo) => {
               console.log("音乐保存成功:", trackInfo);
-              
+
               // 安全检查：确保 trackInfo 有效
               if (trackInfo && trackInfo.name && trackInfo.url) {
                 tracks.push(trackInfo);
@@ -615,7 +629,6 @@ const chooseFiles = async () => {
                 icon: "none",
               });
             });
-
         } catch (err) {
           console.error("处理文件时出错:", err);
           uni.showToast({
@@ -803,16 +816,36 @@ const onTrackEnd = () => {
 };
 
 // 生命周期
+// 在 onMounted 生命周期中添加监听器
 onMounted(() => {
-  // 更准确的平台检测
   const sysInfo = uni.getSystemInfoSync();
   isApp.value = sysInfo.platform === "android" || sysInfo.platform === "ios";
-  console.log("当前平台:", sysInfo.platform); // 添加平台信息日志
 
   if (isApp.value) {
-    loadLocalTracks(); // 加载本地音乐列表
+    // 加载本地音乐列表
+    loadLocalTracks().then(() => {
+      console.log("本地音乐加载完成，总数:", tracks.length);
+    });
+
+    // 监听音乐添加事件
+    uni.$on("music-added", (trackInfo) => {
+      console.log("收到新音轨:", trackInfo);
+
+      // 检查是否已存在相同的音轨
+      const exists = tracks.some((track) => track.name === trackInfo.name);
+
+      if (!exists) {
+        // 立即更新播放列表
+        tracks.push(trackInfo);
+
+        // 如果是第一首歌，自动播放
+        if (tracks.length === 1) {
+          playSpecificTrack(0);
+        }
+      }
+    });
   }
-  console.log("fileInput after mount:", fileInputRef.value);
+
   initCanvas();
   initAudio();
 });
@@ -827,6 +860,7 @@ onMounted(() => {
   width: 100vw;
   background: linear-gradient(to bottom, #372963, #000000);
   color: white;
+  overflow-y: hidden;
 }
 
 .player {
@@ -948,7 +982,7 @@ button:hover {
 .playlist {
   text-align: left;
   width: 100%;
-  max-height: 380px;
+  max-height: 250px;
   overflow-y: auto;
   transition: all 0.3s ease-in-out;
   box-sizing: border-box;
@@ -962,7 +996,6 @@ button:hover {
   align-items: center;
   width: 100%;
   height: 30px;
-  margin-top: 30px;
 }
 
 .playlist-title h3 {
